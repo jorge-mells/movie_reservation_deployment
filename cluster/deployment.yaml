@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.28.0-standalone-strict/deployment.json
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: movie-reservation
+  labels:
+    app: web-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-apps
+    spec:
+      containers:
+        - name: movie-reservation
+          image: ghcr.io/movie_reservation_again:0.0.1
+          ports:
+            - containerPort: 3000
+              name: backend-port

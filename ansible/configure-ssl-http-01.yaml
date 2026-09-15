@@ -1,0 +1,25 @@
+---
+- name: Configure SSL certificates
+  hosts: all
+
+  pre_tasks:
+    - name: Prompt for ACME account email
+      ansible.builtin.pause:
+        prompt: "Enter your email address for Let's Encrypt registration"
+      register: user_email_prompt
+
+  tasks:
+    - name: Obtain SSL certificate
+      ansible.builtin.command: >
+        certbot --nginx -d jorgemells.com -d www.jorgemells.com
+        --non-interactive --agree-tos -m {{ user_email_prompt.user_input }}
+      args:
+        creates: "/etc/letsencrypt/live/jorgemells.com/fullchain.pem"
+
+    - name: Auto-renew cron
+      ansible.builtin.cron:
+        name: "Certbot renewal"
+        job: "certbot renew --quiet --post-hook 'systemctl reload nginx'"
+        hour: "3"
+        minute: "30"
+        weekday: "1"

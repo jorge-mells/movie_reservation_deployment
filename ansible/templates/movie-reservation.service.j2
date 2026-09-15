@@ -1,0 +1,19 @@
+# ==========================================
+# Managed by Ansible - Do Not Edit Manually
+# ==========================================
+
+[Unit]
+Description=Movie Reservation Backend API
+After=network.target
+
+[Service]
+Type=simple
+User={{ app_user }}
+Group={{ app_user }}
+WorkingDirectory=/opt/movie_reservation
+EnvironmentFile={{ app_dir }}/.env
+ExecStart=/usr/local/bin/uv run fastapi run
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

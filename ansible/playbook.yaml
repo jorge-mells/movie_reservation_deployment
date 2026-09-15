@@ -1,0 +1,300 @@
+---
+- name: Ensure server startup
+  hosts: all
+  gather_facts: false
+
+  tasks:
+    - name: Wait for server to startup
+      ansible.builtin.wait_for_connection:
+
+      # NOTE: maybe later add cloud-init wait and checks
+    - name: Ping server
+      ansible.builtin.ping:
+
+- name: Harden Server
+  hosts: all
+  become: true
+
+  tasks:
+    - name: Upgrade Server
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+
+    - name: Install dnf-automatic for security updates
+      ansible.builtin.dnf:
+        name: dnf-automatic
+        state: present
+
+    - name: Configure dnf-automatic to apply security updates automatically
+      community.general.ini_file:
+        path: /etc/dnf/automatic.conf
+        section: commands
+        option: "{{ item.option }}"
+        value: "{{ item.value }}"
+        mode: '0644'
+      loop:
+        - { option: 'upgrade_type', value: 'security' }
+        - { option: 'apply_updates', value: 'yes' }
+
+    - name: Enable and start the dnf-automatic timer
+      ansible.builtin.systemd:
+        name: dnf-automatic.timer
+        enabled: true
+        state: restarted
+
+    - name: Install EPEL repository
+      ansible.builtin.dnf:
+        name: epel-release
+        state: present
+
+    - name: Install Fail2ban
+      ansible.builtin.dnf:
+        name: fail2ban
+        state: present
+
+    - name: Configure Fail2ban
+      ansible.builtin.copy:
+        src: "files/jail.local"
+        dest: /etc/fail2ban/jail.local
+        owner: root
+        group: root
+        mode: '0644' 
+      tags: ['now']
+
+    # NOTE: fail2ban starts later because it needs nginx up before
+
+    - name: Install firewall
+      ansible.builtin.dnf:
+        name: firewalld
+        state: present
+
+    - name: Configure firewall
+      ansible.posix.firewalld:
+        service: "{{ item }}"
+        permanent: true
+        state: enabled
+      loop:
+        - http
+        - https
+        - ssh
+
+    - name: Start and enable firewalld
+      ansible.builtin.systemd:
+        name: firewalld
+        state: restarted
+        enabled: true
+
+
+- name: Configure reverse proxy
+  hosts: all
+  become: true
+  vars:
+    dns_01: true
+    http_01: false
+
+  tasks:
+    - name: Install nginx and related tools
+      ansible.builtin.dnf:
+        name: [nginx, certbot, python3-certbot-nginx]
+        state: present
+
+    - name: Obtain SSL via http-01
+      ansible.builtin.include_tasks: configure-ssl-http-01.yaml
+      when: http_01
+
+    - name: Obtain SSL via dns-01
+      ansible.builtin.include_tasks: configure-ssl-dns-01.yaml
+      when: dns_01
+
+    - name: Configure nginx
+      ansible.builtin.template:
+        src: "templates/nginx.conf.j2"
+        dest: /etc/nginx/nginx.conf
+        owner: root
+        group: root
+        mode: '0644' 
+
+    - name: Allow nginx to connect to upstream services
+      ansible.posix.seboolean:
+        name: httpd_can_network_connect
+        state: true
+        persistent: true
+      become: true
+
+    - name: Allow nginx to connect to FastAPI on port 8000
+      community.general.seport:
+        ports: 8000
+        proto: tcp
+        setype: http_port_t
+        state: present
+
+    - name: Start and enable nginx
+      ansible.builtin.systemd:
+        name: nginx
+        state: reloaded
+        enabled: true
+
+    - name: Start and Enable Fail2ban
+      ansible.builtin.systemd:
+        name: fail2ban
+        state: restarted
+        enabled: true
+      tags: ['now']
+
+- name: Configure database
+  hosts: all
+  become: true
+  vars_files:
+    - vars/main.yaml
+    - vars/secrets.yaml
+  roles:
+    - role: geerlingguy.mysql
+
+
+- name: Start Backend API
+  hosts: all
+  vars_files:
+    - vars/main.yaml
+    - vars/secrets.yaml
+  vars:
+    app_dir: /opt/movie_reservation # reason: using a nonuser directory means any user can manage it
+    app_user: movie_reservation
+    app_service: "movie-reservation.service"
+    webhook_secret: "{{ lookup('file', playbook_dir + '/credentials/webhook_secret.txt') }}"
+
+  tasks:
+
+    - name: Install required dependencies
+      ansible.builtin.dnf:
+        name: [git, acl, tar, curl] # acl to fix some stupid ansible permission issues; tar and curl for installing uv
+        state: present
+      become: true
+
+    - name: Create dedicated system user for the app # for security reasons
+      ansible.builtin.user:
+        name: "{{ app_user }}"
+        system: true
+        home: "/var/lib/movie_reservation"
+        shell: /usr/sbin/nologin
+        state: present
+      become: true
+
+    - name: Ensure target directory exists
+      ansible.builtin.file:
+        path: "{{ app_dir }}"
+        state: directory
+        owner: "{{ app_user }}"
+        mode: '0755'
+      become: true
+
+    - name: Clone Repo
+      ansible.builtin.git:
+        repo: 'https://github.com/jorge-mells/movie_reservation_again.git'
+        dest: "{{ app_dir }}"
+      become: true
+      become_user: "{{ app_user }}"
+
+    - name: Create openssl secret
+      ansible.builtin.command: 'openssl rand -hex 32'
+      register: secret_key
+      changed_when: false
+
+    - name: Create .env
+      ansible.builtin.template:
+        src: "templates/dot_env.j2"
+        dest: "{{ app_dir }}/.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0600" # owned and modifiable only by user
+      become: true
+      vars:
+        database_url: "mysql+pymysql://{{ mysql_users[0].name }}:{{ mysql_users[0].password }}@localhost:3306/{{ mysql_databases[0].name }}"
+        secret_key: "{{ secret_key.stdout }}"
+
+    - name: Check if uv exists
+      ansible.builtin.stat:
+        path: /usr/local/bin/uv
+      register: uv_is_installed
+
+    - name: Install uv
+      ansible.builtin.shell: 'curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR=/usr/local/bin sh && restorecon -v /usr/local/bin/uv'
+      become: true
+      when: not uv_is_installed.stat.exists
+
+    - name: Setup Backend App
+      ansible.builtin.shell: '/usr/local/bin/uv sync && /usr/local/bin/uv run alembic upgrade head'
+      args:
+        chdir: "{{ app_dir }}"
+      become: true
+      become_user: "{{ app_user }}"
+
+    - name: Create service
+      ansible.builtin.template:
+        src: "templates/{{ app_service }}.j2"
+        dest: /etc/systemd/system/{{ app_service }}
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+
+    - name: Allow app user to restart its own systemd service without password
+      ansible.builtin.copy:
+        dest: "/etc/sudoers.d/{{ app_user }}"
+        content: |
+          {{ app_user }} ALL=(root) NOPASSWD: /usr/bin/systemctl restart {{ app_service }}
+        owner: root
+        group: root
+        mode: '0440'
+      become: true
+
+    - name: Start App
+      ansible.builtin.systemd:
+        name: "{{ app_service }}"
+        state: restarted
+        enabled: true
+        daemon_reload: true
+      become: true
+
+    - name: Install webhook
+      ansible.builtin.include_tasks: install-webhook.yaml
+
+    - name: Create CD script
+      ansible.builtin.template:
+        src: "templates/redeploy.sh.j2"
+        dest: "{{ app_dir }}/redeploy.sh"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0700"
+      become: true
+
+    - name: Create webhook configuration file
+      ansible.builtin.template:
+        src: "templates/hooks.yaml.j2"
+        dest: "{{ app_dir }}/hooks.yaml"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: "0600"
+      become: true
+
+    - name: Enable CD
+      ansible.builtin.systemd:
+        name: webhook.service
+        state: restarted
+        enabled: true
+      become: true
+
+    - name: Configure GitHub repository webhook
+      community.general.github_webhook:
+        user: "jorge-mells"
+        repository: "jorge-mells/movie_reservation_again"
+        url: "https://api.jorgemells.com/hooks/deploy"
+        secret: "{{ webhook_secret }}"
+        content_type: "json"
+        events:
+          - "deployment"
+        active: true
+        state: "present"
+        token: "{{ lookup('ansible.builtin.pipe', 'gh auth token') }}" # NOTE: heighten security(the token is too broad!!)
+      delegate_to: localhost
+      run_once: true
