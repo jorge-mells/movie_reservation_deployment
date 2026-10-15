@@ -1,0 +1,5 @@
+---
+- name: Import tasks for security
+  ansible.builtin.import_tasks: "{{ role_path }}/tasks/redhat.yml"
+  when: ansible_facts["os_family"] == "RedHat"
+  # TODO: add when condition later

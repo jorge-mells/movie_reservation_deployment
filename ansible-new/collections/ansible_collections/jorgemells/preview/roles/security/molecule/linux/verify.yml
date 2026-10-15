@@ -1,0 +1,47 @@
+# NOTE: instead of testing for behavior, it's better to test that the service has seen your changes and started successfully
+---
+- name: Verify
+  hosts: all
+  gather_facts: true
+  tasks:
+    - name: Check required packages are installed
+      ansible.builtin.package_facts:
+        manager: auto
+
+    - name: Verify python3 is installed
+      ansible.builtin.assert:
+        that:
+          - "'python3' in ansible_facts.packages"
+        fail_msg: "Python3 package not found"
+
+    - name: Check Services are enabled
+      ansible.builtin.command: "systemctl is-enabled {{ item }}"
+      changed_when: false
+      register: security_enabled_result
+      loop:
+        - dnf-automatic.timer
+        - fail2ban
+        - firewalld
+
+    - name: Assert services are enabled
+      ansible.builtin.assert:
+        that:
+          - item.rc == 0
+        fail_msg: "{{ item.item }} is not enabled"
+      loop: "{{ security_enabled_result.results }}"
+
+    - name: Check Services are active
+      ansible.builtin.command: "systemctl is-active {{ item }}"
+      changed_when: false
+      register: security_active_result
+      loop:
+        - dnf-automatic.timer
+        - fail2ban
+        - firewalld
+
+    - name: Assert services are active
+      ansible.builtin.assert:
+        that:
+          - item.rc == 0
+        fail_msg: "{{ item.item }} is not active"
+      loop: "{{ security_active_result.results }}"

@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/inventory.json
+plugin: community.libvirt.libvirt
+uri: "qemu:///system"
+compose: # NOTE: the weird syntax is because everything here is jinja2 templating however strangely wrapping them in {{}} doesn't work and for the strings you need to first tell yaml it's a string with "" and then jinja with ''. it's weird but be aware of this.
+  ansible_host: interface_addresses.eth0.addrs[0].addr
+  ansible_user: "'cloudinit'"
+  ansible_connection: "'ssh'"
+groups:
+  running: info.state == "running" # and "example.com" in guest_info.hostname

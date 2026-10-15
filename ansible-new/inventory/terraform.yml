@@ -1,0 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ansible/ansible-lint/main/src/ansiblelint/schemas/inventory.json
+plugin: cloud.terraform.terraform_provider
+project_path: ../terraform
+binary_path: /usr/bin/terraform
