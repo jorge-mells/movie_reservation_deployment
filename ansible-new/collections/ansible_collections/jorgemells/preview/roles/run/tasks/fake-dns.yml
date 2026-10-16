@@ -1,0 +1,18 @@
+---
+# TODO: replace with proper dns setup for a real webserver
+- name: Validate dns_state
+  ansible.builtin.assert:
+    that:
+      - dns_state | default('present') in ['present', 'absent']
+    fail_msg: "dns_state must be 'present' or 'absent', got '{{ dns_state | default('present') }}'"
+
+- name: "DNS simulation - state: {{ dns_state | default('present') }}"
+  delegate_to: localhost
+  become: true
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ hostvars[item].ansible_host }} api.{{ hostvars[item].domain_name }}"
+    state: "{{ dns_state | default('present') }}"
+  loop: "{{ groups['webservers'] }}"
+  tags:
+    - molecule-notest

@@ -1,3 +1,35 @@
 ---
-- name: Install podman
-  ansible.builtin.import_role: alvistack.podman
+- name: Add first VM to webservers
+  ansible.builtin.add_host:
+    name: "{{ groups['all'][0] }}"
+    groups: webservers
+
+- name: Main tasks
+  when: run_main_tasks
+  block:
+
+    - name: Install podman
+      ansible.builtin.dnf:
+        name:
+          - podman
+          - podman-compose
+          - podman-docker
+        state: present
+      become: true
+
+# TODO: replace with proper dns setup for a real webserver in another task file
+- name: DNS tasks
+  when: run_dns_tasks
+  block:
+    - name: Simulate dns
+      ansible.builtin.include_tasks: fake-dns.yml
+      vars:
+        dns_state: present
+
+- name: DNS cleanup tasks
+  when: run_cleanup_tasks
+  block:
+    - name: Cleanup simulated dns
+      ansible.builtin.include_tasks: fake-dns.yml
+      vars:
+        dns_state: present

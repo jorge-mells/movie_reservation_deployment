@@ -1,0 +1,14 @@
+---
+- name: Cleanup playbook
+  hosts: all
+  pre_tasks:
+    - name: Add first VM to webservers
+      ansible.builtin.add_host:
+        name: "{{ groups['all'][0] }}"
+        groups: webservers
+  roles:
+    - role: jorgemells.preview.run
+      vars:
+        run_cleanup_tasks: true
+        run_main_tasks: false
+        run_dns_tasks: false

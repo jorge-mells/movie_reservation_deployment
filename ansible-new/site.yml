@@ -1,5 +1,11 @@
 ---
-- name: Example playbook
+- name: Main playbook
   hosts: all
+  pre_tasks:
+    - name: Add first VM to webservers
+      ansible.builtin.add_host:
+        name: "{{ groups['all'][0] }}"
+        groups: webservers
   roles:
     - role: jorgemells.preview.security
+    - role: jorgemells.preview.run
