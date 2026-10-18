@@ -1,3 +1,9 @@
 run_main_tasks: true
 run_dns_tasks: true
 run_cleanup_tasks: false
+
+run_subdomain_name: "api"
+run_full_domain: "{{ run_subdomain_name }}.{{ hostvars[groups['webservers'][0]]['domain_name'] | default('example.com') }}"
+
+run_compose_dir: ~
+run_compose_root_dir: ~

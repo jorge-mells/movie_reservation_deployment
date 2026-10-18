@@ -1,0 +1,29 @@
+---
+- name: Install podman
+  ansible.builtin.dnf:
+    name:
+      - podman
+      - podman-docker
+    state: present
+  become: true
+
+- name: Add Docker repo
+  ansible.builtin.yum_repository:
+    name: docker-ce
+    description: Docker CE
+    baseurl: https://download.docker.com/linux/centos/$releasever/$basearch/stable
+    gpgkey: https://download.docker.com/linux/centos/gpg
+    gpgcheck: true
+  become: true
+
+- name: Install docker-compose-plugin
+  ansible.builtin.dnf:
+    name: docker-compose-plugin
+    state: present
+  become: true
+
+- name: Remove Docker repo
+  ansible.builtin.yum_repository:
+    name: docker-ce
+    state: absent
+  become: true

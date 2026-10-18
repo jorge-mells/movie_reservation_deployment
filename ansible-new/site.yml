@@ -9,3 +9,5 @@
   roles:
     - role: jorgemells.preview.security
     - role: jorgemells.preview.run
+      vars:
+        run_compose_root_dir: "{{ playbook_dir }}/../compose/compose-root-services"

@@ -3,6 +3,9 @@ collections:
   - name: community.general
     version: 13.3.0
 
+  - name: community.docker
+    version: 5.4.0
+
   - name: cloud.terraform
     version: 2.1.0
 

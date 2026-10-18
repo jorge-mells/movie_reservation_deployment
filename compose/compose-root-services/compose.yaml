@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
+services:
+  reverseproxy:
+    image: nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:z
+      - ./nginx/conf.d/00-default.conf:/etc/nginx/conf.d/00-default.conf:z
+      - ./nginx/templates/api.conf.template:/etc/nginx/templates/api.conf.template:z
+    environment:
+      FULL_DOMAIN_NAME: ${FULL_DOMAIN_NAME}
+      SERVICE_PORT: ${SERVICE_PORT}

@@ -1,0 +1,22 @@
+---
+- name: Copy priviledged compose dir remotely
+  ansible.builtin.copy:
+    src: "{{ run_compose_root_dir | mandatory }}/"
+    dest: "{{ ansible_facts['user_dir'] }}/compose"
+    mode: "0644"
+
+- name: Enable system Podman socket
+  become: true
+  ansible.builtin.systemd:
+    name: podman.socket
+    state: started
+    enabled: true
+    scope: system
+
+- name: Try out priviledged docker compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ ansible_facts['user_dir'] }}/compose"
+  environment:
+    FULL_DOMAIN_NAME: "{{ run_full_domain }}"
+    SERVICE_PORT: "8000"
+  become: true

@@ -13,7 +13,6 @@ resource "ansible_host" "vm" {
 
 resource "ansible_group" "terraform" {
   name = "terraform"
-  # variables = {
-  #   ansible_python_interpreter = "/usr/bin/python3"
-  # }
+  variables = {
+  }
 }

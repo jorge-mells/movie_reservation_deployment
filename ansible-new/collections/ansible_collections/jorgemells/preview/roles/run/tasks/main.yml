@@ -7,18 +7,14 @@
 - name: Main tasks
   when: run_main_tasks
   block:
+    - name: Install docker
+      ansible.builtin.import_tasks: install-docker-centos.yml
 
-    - name: Install podman
-      ansible.builtin.dnf:
-        name:
-          - podman
-          - podman-compose
-          - podman-docker
-        state: present
-      become: true
+    - name: Import docker compose project
+      ansible.builtin.import_tasks: docker-compose.yml
 
 # TODO: replace with proper dns setup for a real webserver in another task file
-- name: DNS tasks
+- name: DNS and Certificate tasks
   when: run_dns_tasks
   block:
     - name: Simulate dns
