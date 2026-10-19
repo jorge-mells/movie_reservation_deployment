@@ -10,3 +10,15 @@
   community.docker.docker_compose_v2:
     project_src: "{{ run_compose_root_dest }}"
   become: true
+  environment: "{{ run_root_env }}"
+
+- name: Copy regular compose dir remotely
+  ansible.builtin.copy:
+    src: "{{ run_compose_dir | mandatory }}/"
+    dest: "{{ run_compose_dest }}"
+    mode: "0644"
+
+- name: Start regular docker compose services
+  community.docker.docker_compose_v2:
+    project_src: "{{ run_compose_dest }}"
+  environment: "{{ run_env }}"

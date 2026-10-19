@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
+services:
+  db:
+    image: mysql:26.7.0@sha256:893418c8a7a34c60d2d961cc30ef136095da141478562ed2101ae3f5faba9c3f
+    restart: always
+    volumes:
+      - "dbdata:/var/lib/mysql"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Please provide the root password for the initial root setup}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - database
+
+# NOTE: use lifecycle pre-start and run the setup-db.sh script for any service that needs a database.
+# also don't forget depends_on as well
+
+volumes:
+  dbdata:
+
+networks:
+  database:

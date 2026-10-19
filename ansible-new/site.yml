@@ -9,14 +9,28 @@
 
     - name: Set full domain
       ansible.builtin.set_fact:
+        # NOTE: this setup essentially gives all servers the same hostname which is probably not what you want
         full_domain: "{{ subdomain_name }}.{{ hostvars[groups['webservers'][0]]['domain_name'] | default('example.com') }}"
+
+    - name: Get db root password
+      ansible.builtin.set_fact:
+        db_root_password: "{{ lookup('pipe', 'pass show ansible/db-root-password', errors='warn') | string | replace('None', '') }}"
+
+    - name: Ensure db root password was retrieved
+      ansible.builtin.assert:
+        that: db_root_password | length > 0
+        fail_msg: "Could not retrieve db_root_password from pass. The current method uses a password manager. Check the ansible playbook to debug the method."
+
   roles:
     # - role: jorgemells.preview.security
     - role: jorgemells.preview.run
-      environment:
-        FULL_DOMAIN_NAME: "{{ full_domain }}"
-        SERVICE_PORT: "8000"
       vars:
         run_compose_root_dir: "{{ playbook_dir }}/../compose/compose-root-services"
-        run_nginx_container: reverseproxy
-        full_domain: "{{ full_domain }}"
+        run_nginx_container: reverseproxy # OPTIMIZE: try to obtain this directly from compose file instead
+        run_full_domain: "{{ full_domain }}"
+        run_root_env:
+          SERVICE_PORT: "8000"
+          FULL_DOMAIN_NAME: "{{ full_domain }}"
+        run_compose_dir: "{{ playbook_dir }}/../compose/compose-services"
+        run_env:
+          DB_ROOT_PASSWORD: "{{ db_root_password }}"

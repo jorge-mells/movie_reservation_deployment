@@ -6,3 +6,4 @@
     chdir: "{{ run_compose_root_dest }}"
   become: true
   changed_when: true
+  environment: "{{ run_root_env }}"

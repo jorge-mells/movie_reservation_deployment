@@ -6,7 +6,15 @@ run_cleanup_tasks: false
 run_compose_dir: ~
 # the path to the compose directory for priviledged containers
 run_compose_root_dir: ~
-# the path to the compose directory on the remote host
+# the path to the priviledged compose directory on the remote host
 run_compose_root_dest: "{{ ansible_facts['user_dir'] }}/compose-root"
+# the path to the compose directory on the remote host
+run_compose_dest: "{{ ansible_facts['user_dir'] }}/compose"
+# the environment for root
+run_root_env: {}
+# the environment for regular compose
+run_env: {}
 # the name of the nginx container(get from compose root directory)
 run_nginx_container: ~
+# the full domain name of the web service
+run_full_domain: ~

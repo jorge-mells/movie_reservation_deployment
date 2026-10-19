@@ -1,9 +1,4 @@
 ---
-- name: Add first VM to webservers
-  ansible.builtin.add_host:
-    name: "{{ groups['all'][0] }}"
-    groups: webservers
-
 - name: Main tasks
   when: run_main_tasks
   block:

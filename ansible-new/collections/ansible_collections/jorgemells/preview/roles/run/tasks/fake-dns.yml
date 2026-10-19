@@ -11,7 +11,7 @@
   become: true
   ansible.builtin.lineinfile:
     path: /etc/hosts
-    line: "{{ hostvars[item].ansible_host }} {{ full_domain | mandatory }}"
+    line: "{{ hostvars[item].ansible_host }} {{ run_full_domain | mandatory }}"
     state: "{{ dns_state | default('present') }}"
   loop: "{{ groups['webservers'] }}"
   tags:
