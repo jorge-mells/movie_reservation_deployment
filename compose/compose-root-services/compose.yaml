@@ -7,7 +7,7 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:z
       - ./nginx/conf.d/00-default.conf:/etc/nginx/conf.d/00-default.conf:z
-      - ./nginx/templates/api.conf.template:/etc/nginx/templates/api.conf.template:z
+      - ./nginx/templates/01-server.conf.template:/etc/nginx/templates/01-server.conf.template:z
     environment:
-      FULL_DOMAIN_NAME: ${FULL_DOMAIN_NAME}
-      SERVICE_PORT: ${SERVICE_PORT}
+      FULL_DOMAIN_NAME: ${FULL_DOMAIN_NAME:?FULL_DOMAIN_NAME is required}
+      SERVICE_PORT: ${SERVICE_PORT:?SERVICE_PORT is required}

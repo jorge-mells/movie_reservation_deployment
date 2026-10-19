@@ -6,8 +6,17 @@
       ansible.builtin.add_host:
         name: "{{ groups['all'][0] }}"
         groups: webservers
+
+    - name: Set full domain
+      ansible.builtin.set_fact:
+        full_domain: "{{ subdomain_name }}.{{ hostvars[groups['webservers'][0]]['domain_name'] | default('example.com') }}"
   roles:
-    - role: jorgemells.preview.security
+    # - role: jorgemells.preview.security
     - role: jorgemells.preview.run
+      environment:
+        FULL_DOMAIN_NAME: "{{ full_domain }}"
+        SERVICE_PORT: "8000"
       vars:
         run_compose_root_dir: "{{ playbook_dir }}/../compose/compose-root-services"
+        run_nginx_container: reverseproxy
+        full_domain: "{{ full_domain }}"

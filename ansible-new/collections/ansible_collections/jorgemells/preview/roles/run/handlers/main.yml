@@ -1,0 +1,8 @@
+---
+- name: (Handler) Reload nginx
+  ansible.builtin.command: > # NOTE: because of weird bash/ansible syntax rules, don't quote the next line
+    docker compose exec {{ run_nginx_container }} nginx -s reload
+  args:
+    chdir: "{{ run_compose_root_dest }}"
+  become: true
+  changed_when: true

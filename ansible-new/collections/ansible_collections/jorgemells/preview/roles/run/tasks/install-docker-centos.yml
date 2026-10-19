@@ -27,3 +27,18 @@
     name: docker-ce
     state: absent
   become: true
+
+- name: Enable system Podman socket
+  become: true
+  ansible.builtin.systemd:
+    name: podman.socket
+    state: started
+    enabled: true
+    scope: system
+
+- name: Enable user Podman socket
+  ansible.builtin.systemd:
+    name: podman.socket
+    state: started
+    enabled: true
+    scope: user
