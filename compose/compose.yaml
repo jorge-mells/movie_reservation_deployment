@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
+services:
+  reverseproxy:
+    image: nginx:1.31.7@sha256:bc4cad49969aaf95eb4eecec5572846f86e59f1e8332aba36ed64b91aff8b724
+    ports:
+      - "80:80"
+    sysctls:
+      net.ipv4.ip_unprivileged_port_start: "80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:z
+      - ./nginx/conf.d/00-default.conf:/etc/nginx/conf.d/00-default.conf:z
+      - ./nginx/templates/01-server.conf.template:/etc/nginx/templates/01-server.conf.template:z
+    environment:
+      FULL_DOMAIN_NAME: ${FULL_DOMAIN_NAME:?FULL_DOMAIN_NAME is required}
+      SERVICE_PORT: ${SERVICE_PORT:?SERVICE_PORT is required}
+      SERVICE_NAME: "movie_reservation" # NOTE: refers to service name as specified below
+      EXTERNAL_NETWORK_DNS_RESOLVER: 172.16.1.1
+    networks:
+      - external
+
+  db:
+    image: mysql:26.7.0@sha256:893418c8a7a34c60d2d961cc30ef136095da141478562ed2101ae3f5faba9c3f
+    restart: always
+    volumes:
+      - "dbdata:/var/lib/mysql"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Please provide the root password for the initial root setup}
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - database
+
+  movie_reservation:
+    image: ghcr.io/jorge-mells/movie_reservation_again@sha256:3c812ec4a3da27a4e6390068770be5a19b04fc7e3ba136ae5ae93cfdece28ce7
+    expose:
+      - "8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    pre_start:
+      - command: ["./scripts/setup-db.sh"]
+        image: mysql:26.7.0@sha256:893418c8a7a34c60d2d961cc30ef136095da141478562ed2101ae3f5faba9c3f
+        volumes:
+          - ./scripts/setup-db.sh:/scripts/setup-db.sh:z
+    environment:
+      DB_HOST: ${DB_HOST:?See .env.prod}
+      DB_PORT: ${DB_PORT:?See .env.prod}
+      DB_NAME: ${DB_NAME:?Please specify db name}
+      DB_USER: ${DB_USER:?Please specify db user}
+      DB_PASSWORD: ${DB_PASSWORD:?Please provide the db password}
+      DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Please provide the root password for the initial root setup}
+      DATABASE_URL: "mysql+pymysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+      SECRET_KEY: ${SECRET_KEY:?Please provide the secret key for the app. See app for details}
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'python3 -c ''import urllib.request; urllib.request.urlopen("http://localhost:8000/health")''',
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - database
+      - external
+
+volumes:
+  dbdata:
+
+networks:
+  database:
+  external:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.16.1.0/24
+          gateway: 172.16.1.1 # NOTE: this is the dns address for the external network used in the .env. This is the only fix for some sort of dynamic service discovery with nginx

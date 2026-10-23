@@ -1,24 +1,22 @@
 ---
-- name: Copy priviledged compose dir remotely
-  ansible.builtin.copy:
-    src: "{{ run_compose_root_dir | mandatory }}/"
-    dest: "{{ run_compose_root_dest }}"
-    mode: "0644"
-  notify: (Handler) Reload nginx
-
-- name: Start priviledged docker compose services
-  community.docker.docker_compose_v2:
-    project_src: "{{ run_compose_root_dest }}"
+- name: Allow unprivileged processes to bind to port 80
   become: true
-  environment: "{{ run_root_env }}"
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_unprivileged_port_start
+    value: "80"
+    sysctl_file: /etc/sysctl.d/99-unprivileged-ports.conf
+    state: present
+    sysctl_set: true
+    reload: true
 
 - name: Copy regular compose dir remotely
   ansible.builtin.copy:
     src: "{{ run_compose_dir | mandatory }}/"
     dest: "{{ run_compose_dest }}"
-    mode: "0644"
+    mode: preserve
 
 - name: Start regular docker compose services
   community.docker.docker_compose_v2:
     project_src: "{{ run_compose_dest }}"
+    env_files: "{{ [run_compose_dest + '/' + run_compose_env_file] if run_compose_env_file is defined else [] }}"
   environment: "{{ run_env }}"

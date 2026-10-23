@@ -4,8 +4,11 @@ server {
     server_name  ${FULL_DOMAIN_NAME};
     root         /usr/share/nginx/html;
 
+    resolver ${EXTERNAL_NETWORK_DNS_RESOLVER} valid=30s;
+
     location / {
-        proxy_pass http://127.0.0.1:${SERVICE_PORT};
+        set $upstream ${SERVICE_NAME};
+        proxy_pass http://$upstream:${SERVICE_PORT};
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

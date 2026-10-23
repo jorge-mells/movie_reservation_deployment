@@ -23,4 +23,4 @@
     - name: Cleanup simulated dns
       ansible.builtin.include_tasks: fake-dns.yml
       vars:
-        dns_state: present
+        dns_state: absent
