@@ -2,6 +2,8 @@
 services:
   reverseproxy:
     image: nginx:1.31.7@sha256:bc4cad49969aaf95eb4eecec5572846f86e59f1e8332aba36ed64b91aff8b724
+    extra_hosts:
+      - "host-gateway:host-gateway"
     ports:
       - "80:80"
     sysctls:
@@ -14,6 +16,8 @@ services:
       FULL_DOMAIN_NAME: ${FULL_DOMAIN_NAME:?FULL_DOMAIN_NAME is required}
       SERVICE_PORT: ${SERVICE_PORT:?SERVICE_PORT is required}
       SERVICE_NAME: "movie_reservation" # NOTE: refers to service name as specified below
+      WEBHOOK_SERVICE_NAME: "host-gateway"
+      WEBHOOK_SERVICE_PORT: "9000"
       EXTERNAL_NETWORK_DNS_RESOLVER: 172.16.1.1
     networks:
       - external
@@ -26,7 +30,11 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Please provide the root password for the initial root setup}
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test:
+        [
+          "CMD-SHELL",
+          "mysql -h localhost -u root -p$$MYSQL_ROOT_PASSWORD -e 'SELECT 1'",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,7 +42,7 @@ services:
       - database
 
   movie_reservation:
-    image: ghcr.io/jorge-mells/movie_reservation_again@sha256:3c812ec4a3da27a4e6390068770be5a19b04fc7e3ba136ae5ae93cfdece28ce7
+    image: ghcr.io/jorge-mells/movie_reservation_again@${IMAGE_TAG}
     expose:
       - "8000"
     depends_on:
@@ -46,6 +54,7 @@ services:
         volumes:
           - ./scripts/setup-db.sh:/scripts/setup-db.sh:z
     environment:
+      IMAGE_TAG: ${IMAGE_TAG:?Please provide the movie_reservation image tag as a sha256 hash(see .env.prod)}
       DB_HOST: ${DB_HOST:?See .env.prod}
       DB_PORT: ${DB_PORT:?See .env.prod}
       DB_NAME: ${DB_NAME:?Please specify db name}

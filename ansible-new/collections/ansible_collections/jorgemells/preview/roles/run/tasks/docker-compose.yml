@@ -15,8 +15,16 @@
     dest: "{{ run_compose_dest }}"
     mode: preserve
 
+- name: Set env variables in env file
+  ansible.builtin.lineinfile:
+    path: "{{ run_compose_dest }}/{{ run_compose_env_file }}"
+    regexp: "^{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+    create: true
+    mode: "0600"
+  loop: "{{ run_env | dict2items }}"
+
 - name: Start regular docker compose services
   community.docker.docker_compose_v2:
     project_src: "{{ run_compose_dest }}"
     env_files: "{{ [run_compose_dest + '/' + run_compose_env_file] if run_compose_env_file is defined else [] }}"
-  environment: "{{ run_env }}"

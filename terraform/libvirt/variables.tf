@@ -26,8 +26,8 @@ variable "vm_info" {
     vm_groups = [{
       name      = "default"
       count     = 1
-      vcpu      = 1
-      memory    = 1
+      vcpu      = 2
+      memory    = 2
       disk_size = 10
     }]
     base_volume_url = "https://cloud.centos.org/centos/10-stream/x86_64/images/CentOS-Stream-GenericCloud-10-20261006.0.x86_64.qcow2"

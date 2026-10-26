@@ -1,0 +1,14 @@
+- id: "deploy"
+  execute-command: "{{ run_webhook_dir }}/redeploy.sh"
+  "pass-arguments-to-command": [
+    { "source": "payload", "name": "package.package_version.container_metadata.tag.digest" }
+  ]
+  command-working-directory: "{{ run_webhook_dir }}"
+  response-message: "Deployment triggered successfully!"
+  trigger-rule:
+    match:
+      type: "payload-hmac-sha256"
+      secret: "{{ run_webhook_secret }}"
+      parameter:
+        source: "header"
+        name: "X-Hub-Signature-256"      

@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+trap 'echo "An error occurred on $LINENO"' ERR
+
+SECRET={{ run_webhook_secret }}
+PAYLOAD=$(cat <<'EOF'
+{
+  "package": {
+    "package_version": {
+      "container_metadata": {
+        "tag": {
+          "digest": "sha256:076f6e469a120d90d7ef563c63d89fdddb723a4d192e38820eb0153bf8f8dc77"
+        }
+      }
+    }
+  }
+}
+EOF
+)
+SIG=$(echo -n "$PAYLOAD" | openssl dgst -sha256 -hmac "$SECRET" | sed 's/^.* //')
+
+curl -X POST http://{{ run_full_domain }}/hooks/deploy \
+  -H "Content-Type: application/json" \
+  -H "X-Hub-Signature-256: sha256=${SIG}" \
+  -H "X-GitHub-Event: push" \
+  -d "$PAYLOAD"

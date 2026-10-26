@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+trap 'echo "An error occurred on $LINENO"' ERR
+
+NEW_IMAGE_TAG="$1"
+cd {{ run_compose_dest }}
+sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${NEW_IMAGE_TAG}/" {{ run_compose_env_file }}
+docker compose --env-file {{ run_compose_env_file }} up -d

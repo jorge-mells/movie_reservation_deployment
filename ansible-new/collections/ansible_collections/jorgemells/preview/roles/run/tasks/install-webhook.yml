@@ -1,0 +1,19 @@
+---
+- name: Download and install webhook v2.8.3
+  ansible.builtin.get_url:
+    url: "https://github.com/adnanh/webhook/releases/download/2.8.3/webhook-linux-{{ run_webhook_arch }}.tar.gz"
+    dest: "/tmp/webhook.tar.gz"
+    mode: "0644"
+  vars:
+    run_webhook_arch: "{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}"
+
+- name: Extract webhook binary to /usr/local/bin
+  ansible.builtin.unarchive:
+    src: "/tmp/webhook.tar.gz"
+    dest: "/usr/local/bin/"
+    include: "webhook-linux-{{ run_webhook_arch }}/webhook"
+    remote_src: true
+    extra_opts: ["--strip-components=1"]
+  become: true
+  vars:
+    run_webhook_arch: "{{ 'arm64' if ansible_facts['architecture'] == 'aarch64' else 'amd64' }}"

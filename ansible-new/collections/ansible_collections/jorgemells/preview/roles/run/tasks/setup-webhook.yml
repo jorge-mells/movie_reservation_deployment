@@ -1,0 +1,52 @@
+---
+- name: Generate webhook secret
+  ansible.builtin.set_fact:
+    run_webhook_secret: "{{ lookup('ansible.builtin.pipe', 'openssl rand -hex 32') }}"
+
+- name: Create webhook config directory
+  ansible.builtin.file:
+    path: "{{ run_ansible_user_homedir }}/.config/systemd/user"
+    state: directory
+    mode: '0755'
+
+- name: Create webhook systemd service file from template
+  ansible.builtin.template:
+    src: "templates/webhook.service.j2"
+    dest: "{{ run_ansible_user_homedir }}/.config/systemd/user/webhook.service"
+    owner: "{{ run_ansible_user }}"
+    group: "{{ run_ansible_user }}" # NOTE: assume the user has the same groupname as username
+    mode: "0644"
+
+- name: Create webhook directory
+  ansible.builtin.file:
+    path: "{{ run_ansible_user_homedir }}/webhook"
+    state: directory
+    mode: '0755'
+
+- name: Create CD script
+  ansible.builtin.template:
+    src: "templates/redeploy.sh.j2"
+    dest: "{{ run_webhook_dir }}/redeploy.sh"
+    owner: "{{ run_ansible_user }}"
+    group: "{{ run_ansible_user }}"
+    mode: "0700"
+
+- name: Create webhook configuration file
+  ansible.builtin.template:
+    src: "templates/hooks.yaml.j2"
+    dest: "{{ run_webhook_dir }}/hooks.yaml"
+    owner: "{{ run_ansible_user }}"
+    group: "{{ run_ansible_user }}"
+    mode: "0600"
+
+- name: Reload user systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: true
+    scope: user
+
+- name: Enable CD
+  ansible.builtin.systemd:
+    name: webhook
+    state: started
+    enabled: true
+    scope: user

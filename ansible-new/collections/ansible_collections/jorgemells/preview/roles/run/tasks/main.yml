@@ -17,6 +17,20 @@
       vars:
         dns_state: present
 
+- name: Setup CD
+  when: run_setup_cd
+  block:
+    - name: Install adnanh/webhook
+      ansible.builtin.include_tasks: install-webhook.yml
+
+    - name: Setup adnanh/webhook
+      ansible.builtin.include_tasks: setup-webhook.yml
+
+    - name: Setup CD
+      ansible.builtin.include_tasks: setup-cd.yml
+      vars:
+        cd_state: present
+
 - name: DNS cleanup tasks
   when: run_cleanup_tasks
   block:
@@ -24,3 +38,7 @@
       ansible.builtin.include_tasks: fake-dns.yml
       vars:
         dns_state: absent
+    - name: Cleanup CD-related stuff
+      ansible.builtin.include_tasks: setup-cd.yml
+      vars:
+        cd_state: absent

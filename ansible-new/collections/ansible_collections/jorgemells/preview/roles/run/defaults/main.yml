@@ -1,5 +1,6 @@
 run_main_tasks: true
 run_dns_tasks: true
+run_setup_cd: true
 run_cleanup_tasks: false
 
 
@@ -14,3 +15,8 @@ run_nginx_container: ~
 run_full_domain: ~
 # relative path to env file in compose directory
 run_compose_env_file: ~
+
+run_ansible_user: "{{ ansible_env.USER }}"
+run_ansible_user_homedir: "{{ ansible_env.HOME }}"
+run_webhook_dir: "{{ run_ansible_user_homedir }}/webhook"
+run_webhook_secret: ~

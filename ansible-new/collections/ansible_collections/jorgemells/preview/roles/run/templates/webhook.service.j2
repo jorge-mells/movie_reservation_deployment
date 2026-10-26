@@ -1,0 +1,11 @@
+[Unit]
+Description=Small webhook server
+After=network.target
+
+[Service]
+WorkingDirectory={{ run_webhook_dir }}
+ExecStart=/usr/local/bin/webhook -hooks hooks.yaml -verbose 
+Restart=always
+
+[Install]
+WantedBy=default.target
