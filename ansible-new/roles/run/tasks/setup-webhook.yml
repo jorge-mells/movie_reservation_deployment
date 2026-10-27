@@ -47,6 +47,6 @@
 - name: Enable CD
   ansible.builtin.systemd:
     name: webhook
-    state: started
+    state: restarted
     enabled: true
     scope: user

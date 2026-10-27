@@ -4,3 +4,6 @@
 `mkdir -p credentials
 openssl rand -hex 32 > credentials/webhook_secret.txt`
 - make sure to add a .vault_pass(use pre-commits to ci check this and add some sort of setup script)
+
+# NOTES
+- this would probably not work on ubuntu(i.e: only podman works)

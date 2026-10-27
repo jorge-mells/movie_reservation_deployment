@@ -1,14 +1,4 @@
 ---
-- name: Allow unprivileged processes to bind to port 80
-  become: true
-  ansible.posix.sysctl:
-    name: net.ipv4.ip_unprivileged_port_start
-    value: "80"
-    sysctl_file: /etc/sysctl.d/99-unprivileged-ports.conf
-    state: present
-    sysctl_set: true
-    reload: true
-
 - name: Copy regular compose dir remotely
   ansible.builtin.copy:
     src: "{{ run_compose_dir | mandatory }}/"

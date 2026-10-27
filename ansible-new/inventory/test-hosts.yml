@@ -1,0 +1,6 @@
+all:
+  hosts:
+    vm0.jorgemells.com:
+      ansible_host: 168.119.190.43
+      ansible_user: ansible
+      domain_name: jorgemells.com

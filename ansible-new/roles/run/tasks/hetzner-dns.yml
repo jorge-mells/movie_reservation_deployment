@@ -1,0 +1,10 @@
+---
+- name: "{{ 'Create' if dns_state == 'present' else 'Remove' }} DNS A record for {{ run_full_domain }}"
+  community.dns.hetzner_dns_record:
+    state: "{{ dns_state }}"
+    zone_name: "{{ run_domain_name }}"
+    prefix: "{{ full_domain | regex_replace('\\.' + run_domain_name + '$', '') }}"
+    type: A
+    value: "{{ ansible_host }}"
+    ttl: 300
+    hetzner_api_token: "{{ run_hetzner_api_token }}"

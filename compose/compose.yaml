@@ -1,24 +1,37 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
 services:
   reverseproxy:
-    image: nginx:1.31.7@sha256:bc4cad49969aaf95eb4eecec5572846f86e59f1e8332aba36ed64b91aff8b724
+    image: nginxproxy/nginx-proxy:1.11@sha256:39c263cc518ef0a336faddbeeb1e4d736920526f32addf3747ebe331d2d7b361
+    labels:
+      com.github.nginx-proxy.nginx: "true"
     extra_hosts:
       - "host-gateway:host-gateway"
     ports:
       - "80:80"
-    sysctls:
-      net.ipv4.ip_unprivileged_port_start: "80"
+      - "443:443"
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:z
-      - ./nginx/conf.d/00-default.conf:/etc/nginx/conf.d/00-default.conf:z
-      - ./nginx/templates/01-server.conf.template:/etc/nginx/templates/01-server.conf.template:z
+      - /run/user/${UID}/podman/podman.sock:/tmp/docker.sock:roz
+      - certs:/etc/nginx/certs:z
+      - vhost:/etc/nginx/vhost.d:z
+      - html:/usr/share/nginx/html:z
+    restart: unless-stopped
     environment:
-      FULL_DOMAIN_NAME: ${FULL_DOMAIN_NAME:?FULL_DOMAIN_NAME is required}
-      SERVICE_PORT: ${SERVICE_PORT:?SERVICE_PORT is required}
-      SERVICE_NAME: "movie_reservation" # NOTE: refers to service name as specified below
-      WEBHOOK_SERVICE_NAME: "host-gateway"
-      WEBHOOK_SERVICE_PORT: "9000"
-      EXTERNAL_NETWORK_DNS_RESOLVER: 172.16.1.1
+      UID: ${UID:?User ID of docker host is required}
+    networks:
+      - external
+
+  acme-companion:
+    image: nginxproxy/acme-companion
+    volumes_from:
+      - reverseproxy
+    volumes:
+      - /run/user/${UID}/podman/podman.sock:/var/run/docker.sock:roz
+      - acme:/etc/acme.sh
+    environment:
+      UID: ${UID:?User ID of docker host is required}
+      DEFAULT_EMAIL: ${LETSENCRYPT_EMAIL:?Please provide letsencrypt email}
+      NGINX_PROXY_CONTAINER: reverseproxy
+    restart: unless-stopped
     networks:
       - external
 
@@ -44,15 +57,22 @@ services:
   movie_reservation:
     image: ghcr.io/jorge-mells/movie_reservation_again@${IMAGE_TAG}
     expose:
-      - "8000"
+      - "${VIRTUAL_PORT:?Please provide service port}"
     depends_on:
       db:
         condition: service_healthy
+      reverseproxy:
+        condition: service_started
     pre_start:
       - command: ["./scripts/setup-db.sh"]
         image: mysql:26.7.0@sha256:893418c8a7a34c60d2d961cc30ef136095da141478562ed2101ae3f5faba9c3f
         volumes:
           - ./scripts/setup-db.sh:/scripts/setup-db.sh:z
+      - command: ["./scripts/setup-webhooks.sh"] # automate cd
+        image: alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
+        volumes:
+          - ./scripts/setup-webhooks.sh:/scripts/setup-webhooks.sh:z
+          - vhost:/vhost.d
     environment:
       IMAGE_TAG: ${IMAGE_TAG:?Please provide the movie_reservation image tag as a sha256 hash(see .env.prod)}
       DB_HOST: ${DB_HOST:?See .env.prod}
@@ -63,6 +83,12 @@ services:
       DB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Please provide the root password for the initial root setup}
       DATABASE_URL: "mysql+pymysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
       SECRET_KEY: ${SECRET_KEY:?Please provide the secret key for the app. See app for details}
+      # proxy env vars
+      WEBHOOK_SERVICE_NAME: ${WEBHOOK_SERVICE_NAME:?See .env.prod}
+      WEBHOOK_SERVICE_PORT: ${WEBHOOK_SERVICE_PORT:?See .env.prod}
+      VIRTUAL_HOST: ${VIRTUAL_HOST:?Please provide service domain name}
+      VIRTUAL_PORT: ${VIRTUAL_PORT:?Please provide service port}
+      LETSENCRYPT_HOST: ${VIRTUAL_HOST:?Please provide service domain name} # NOTE: remove this to stop acme
     healthcheck:
       test:
         [
@@ -78,12 +104,11 @@ services:
 
 volumes:
   dbdata:
+  vhost:
+  certs:
+  html:
+  acme:
 
 networks:
   database:
   external:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.16.1.0/24
-          gateway: 172.16.1.1 # NOTE: this is the dns address for the external network used in the .env. This is the only fix for some sort of dynamic service discovery with nginx

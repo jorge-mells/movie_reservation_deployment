@@ -9,13 +9,19 @@
 
     - name: Set full domain
       ansible.builtin.set_fact:
-        # NOTE: this setup essentially gives all servers the same hostname which is probably not what you want
-        full_domain: "{{ subdomain_name }}.{{ hostvars[groups['webservers'][0]]['domain_name'] | default('example.com') }}"
+        domain_name: "{{ hostvars[groups['webservers'][0]]['domain_name'] }}"
+        full_domain: "{{ subdomain_name }}.{{ domain_name | default('example.com') }}"
+
   roles:
-    - role: jorgemells.preview.run
+    - role: run
       vars:
         run_cleanup_tasks: true
         run_main_tasks: false
         run_dns_tasks: false
         run_setup_cd: false
         run_full_domain: "{{ full_domain }}"
+        run_domain_name: "{{ domain_name }}"
+        run_github_token: "{{ lookup('ansible.builtin.pipe', 'gh auth token') }}"
+        run_dns: "hetzner"
+        run_cd_type: "github"
+        run_hetzner_api_token: "{{ lookup('pipe', 'bw get item hcloud_token | jq -r .notes') }}"

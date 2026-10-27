@@ -1,0 +1,33 @@
+---
+- name: Configure GitHub repository webhook
+  community.general.github_webhook:
+    user: "{{ run_github_user | mandatory }}"
+    repository: "{{ run_github_user }}/{{ run_github_repo | mandatory }}"
+    url: "https://{{ run_full_domain }}/hooks/deploy"
+    secret: "{{ run_webhook_secret | default(omit) }}"
+    content_type: "json"
+    events:
+      - "package"
+    active: true
+    state: "{{ cd_state }}"
+    token: "{{ run_github_token | mandatory }}"
+  delegate_to: localhost
+  run_once: true
+  when: run_cd_type == "github"
+
+- name: Configure fake webhook test script
+  ansible.builtin.template:
+    src: templates/fake-cd.sh.j2
+    dest: "{{ playbook_dir }}/fake-cd.sh"
+    owner: "{{ lookup('env', 'USER') }}"
+    group: "{{ lookup('env', 'USER') }}"
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+  when: run_cd_type == "fake" and cd_state == "present"
+
+- name: Cleanup fake webhook script
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/fake-cd.sh"
+    state: absent
+  when: cd_state == "absent" and run_cd_type == "fake"

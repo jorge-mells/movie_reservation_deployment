@@ -1,4 +1,19 @@
 ---
+- name: DNS and Certificate tasks
+  when: run_dns_tasks
+  block:
+    - name: Simulate fake dns
+      ansible.builtin.include_tasks: fake-dns.yml
+      when: run_dns == "fake"
+      vars:
+        dns_state: present
+
+    - name: Setup Hetzner DNS
+      ansible.builtin.include_tasks: hetzner-dns.yml
+      when: run_dns == "hetzner"
+      vars:
+        dns_state: present
+
 - name: Main tasks
   when: run_main_tasks
   block:
@@ -7,15 +22,6 @@
 
     - name: Import docker compose project
       ansible.builtin.import_tasks: docker-compose.yml
-
-# TODO: replace with proper dns setup for a real webserver in another task file
-- name: DNS and Certificate tasks
-  when: run_dns_tasks
-  block:
-    - name: Simulate dns
-      ansible.builtin.include_tasks: fake-dns.yml
-      vars:
-        dns_state: present
 
 - name: Setup CD
   when: run_setup_cd
@@ -36,8 +42,16 @@
   block:
     - name: Cleanup simulated dns
       ansible.builtin.include_tasks: fake-dns.yml
+      when: run_dns == "fake"
       vars:
         dns_state: absent
+
+    - name: Cleanup Hetzner dns
+      ansible.builtin.include_tasks: hetzner-dns.yml
+      when: run_dns == "hetzner"
+      vars:
+        dns_state: absent
+
     - name: Cleanup CD-related stuff
       ansible.builtin.include_tasks: setup-cd.yml
       vars:

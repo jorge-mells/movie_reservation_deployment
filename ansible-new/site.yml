@@ -3,26 +3,44 @@
   hosts: all
   pre_tasks:
     - name: Add first VM to webservers
+      delegate_to: localhost
+      run_once: true # noqa: run-once[task]
       ansible.builtin.add_host:
         name: "{{ groups['all'][0] }}"
         groups: webservers
 
     - name: Set full domain
       ansible.builtin.set_fact:
-        # NOTE: this setup essentially gives all servers the same hostname which is probably not what you want
-        full_domain: "{{ subdomain_name }}.{{ hostvars[groups['webservers'][0]]['domain_name'] | default('example.com') }}"
+        domain_name: "{{ hostvars[groups['webservers'][0]]['domain_name'] }}"
+        full_domain: "{{ subdomain_name }}.{{ domain_name | default('example.com') }}"
+
+    - name: Allow unprivileged processes to bind to port 80
+      become: true
+      ansible.posix.sysctl:
+        name: net.ipv4.ip_unprivileged_port_start
+        value: "80"
+        sysctl_file: /etc/sysctl.d/99-unprivileged-ports.conf
+        state: present
+        sysctl_set: true
+        reload: true
 
   roles:
-    - role: jorgemells.preview.security
-    - role: jorgemells.preview.run
+    - role: security
+    - role: run
       vars:
-        run_nginx_container: reverseproxy # OPTIMIZE: try to obtain this directly from compose file instead
         run_full_domain: "{{ full_domain }}"
+        run_domain_name: "{{ domain_name }}"
+        run_dns: "hetzner"
+        run_cd_type: "github"
+        run_hetzner_api_token: "{{ lookup('pipe', 'bw get item hcloud_token | jq -r .notes') }}"
         run_compose_dir: "{{ playbook_dir }}/../compose"
         run_compose_env_file: ".env.prod"
+        run_github_token: "{{ lookup('ansible.builtin.pipe', 'gh auth token') }}"
         run_env:
-          SERVICE_PORT: "8000"
-          FULL_DOMAIN_NAME: "{{ full_domain }}"
+          VIRTUAL_PORT: "8000"
+          UID: "{{ ansible_facts['user_uid'] }}"
+          LETSENCRYPT_EMAIL: "{{ letsencrypt_email | mandatory }}"
+          VIRTUAL_HOST: "{{ full_domain }}"
           DB_ROOT_PASSWORD: "{{ lookup('pipe', 'pass show ansible/db-root-password') }}"
           DB_NAME: "prod"
           DB_USER: movie_reservation

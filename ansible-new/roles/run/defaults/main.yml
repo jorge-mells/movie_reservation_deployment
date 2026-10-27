@@ -9,8 +9,6 @@ run_compose_dir: ~
 run_compose_dest: "{{ ansible_facts['user_dir'] }}/compose"
 # the environment for regular compose
 run_env: {}
-# the name of the nginx container(get from compose root directory)
-run_nginx_container: ~
 # the full domain name of the web service
 run_full_domain: ~
 # relative path to env file in compose directory
@@ -20,3 +18,11 @@ run_ansible_user: "{{ ansible_env.USER }}"
 run_ansible_user_homedir: "{{ ansible_env.HOME }}"
 run_webhook_dir: "{{ run_ansible_user_homedir }}/webhook"
 run_webhook_secret: ~
+
+run_dns: "fake"
+run_cd_type: "fake"
+
+run_github_user: ~
+run_github_repo: ~
+
+# TODO: finish documenting all variables!!! Very important.

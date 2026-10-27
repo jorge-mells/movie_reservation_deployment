@@ -1,6 +1,0 @@
-all:
-  children:
-    web:
-      hosts:
-        jorgemells.com:
-          ansible_user: ansible
