@@ -3,6 +3,9 @@
 set -euo pipefail
 trap 'echo "An error occurred on $LINENO"' ERR
 
+# parse args from SSH_ORIGINAL_COMMAND
+set -- $SSH_ORIGINAL_COMMAND
+
 NEW_IMAGE_TAG="$1"
 cd {{ run_compose_dest }}
 sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=${NEW_IMAGE_TAG}/" {{ run_compose_env_file }}

@@ -12,6 +12,8 @@
     - name: Set full domain
       ansible.builtin.set_fact:
         domain_name: "{{ hostvars[groups['webservers'][0]]['domain_name'] }}"
+        # NOTE: refactor this since a host can have several domains each needing dns
+        # Attach subdomain names to hosts lest all hosts have the same subdomain
         full_domain: "{{ subdomain_name }}.{{ domain_name | default('example.com') }}"
 
     - name: Allow unprivileged processes to bind to port 80
@@ -36,6 +38,13 @@
         run_compose_dir: "{{ playbook_dir }}/../compose"
         run_compose_env_file: ".env.prod"
         run_github_token: "{{ lookup('ansible.builtin.pipe', 'gh auth token') }}"
+        # NOTE: get from github deploy.yml workflow
+        run_deploy_targets_varname: "DEPLOY_HOSTS"
+        run_ssh_private_key_varname: "SSH_DEPLOY_PRIVATE_KEY"
+        run_deploy_pubkey_varname: "SSH_DEPLOY_PUBLIC_KEY"
+        run_deploy_scriptname: "deploy.sh"
+        run_deploy_relative_dir: "deploy"
+        # NOTE: end
         run_env:
           VIRTUAL_PORT: "8000"
           UID: "{{ ansible_facts['user_uid'] }}"

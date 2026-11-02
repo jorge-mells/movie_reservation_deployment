@@ -25,3 +25,10 @@
         run_dns: "hetzner"
         run_cd_type: "github"
         run_hetzner_api_token: "{{ lookup('pipe', 'bw get item hcloud_token | jq -r .notes') }}"
+        # NOTE: get from github deploy.yml workflow
+        run_deploy_targets_varname: "DEPLOY_HOSTS"
+        run_ssh_private_key_varname: "SSH_DEPLOY_PRIVATE_KEY"
+        run_deploy_pubkey_varname: "SSH_DEPLOY_PUBLIC_KEY"
+        run_deploy_scriptname: "deploy.sh"
+        run_deploy_relative_dir: "deploy"
+        # NOTE: end

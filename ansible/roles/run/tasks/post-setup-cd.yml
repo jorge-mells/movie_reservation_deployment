@@ -1,0 +1,23 @@
+---
+- name: Compute and update deploy targets
+  run_once: true
+  delegate_to: localhost
+  block:
+    - name: Compute deploy targets list
+      ansible.builtin.set_fact:
+        run_updated_targets_fact: "{{ (run_updated_targets_fact | default([])) + [{'user': ansible_user, 'ip': hostvars[item].ansible_host}] }}"
+        # NOTE: no clean way to decouple the dictionary structure for ansible and github actions
+      loop: "{{ ansible_play_hosts }}"
+
+    - name: Update deploy targets variable
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ run_github_user }}/{{ run_github_repo }}/actions/variables/{{ run_deploy_targets_varname }}"
+        method: PATCH
+        headers:
+          Authorization: "Bearer {{ run_github_token }}"
+          Accept: "application/vnd.github+json"
+        body_format: json
+        body:
+          name: "{{ run_deploy_targets_varname }}"
+          value: "{{ run_updated_targets_fact | to_json }}"
+        status_code: [200, 204]

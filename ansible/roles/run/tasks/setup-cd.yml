@@ -1,0 +1,22 @@
+---
+- name: Create deploy script directory
+  ansible.builtin.file:
+    path: "/home/{{ ansible_user }}/{{ run_deploy_relative_dir }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy deploy script
+  ansible.builtin.template:
+    src: templates/redeploy.sh.j2
+    dest: "/home/{{ ansible_user }}/{{ run_deploy_relative_dir }}/{{ run_deploy_scriptname }}"
+    mode: '0500'
+
+# yamllint disable rule:line-length
+- name: Set up authorized_keys with restrictions
+  ansible.posix.authorized_key:
+    user: "{{ ansible_user }}"
+    key: "{{ run_deploy_public_key_fact | mandatory }}"
+    key_options: 'command="/home/{{ ansible_user }}/{{ run_deploy_relative_dir }}/{{ run_deploy_scriptname }}",no-pty,no-agent-forwarding,no-port-forwarding'
+    state: present
+  become: true
+# yamllint enable rule:line-length

@@ -1,0 +1,70 @@
+---
+- name: Get current deploy targets
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/{{ run_github_user }}/{{ run_github_repo }}/actions/variables/{{ run_deploy_targets_varname }}"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ run_github_token }}"
+      Accept: "application/vnd.github+json"
+  register: run_deploy_targets_result
+  delegate_to: localhost
+  run_once: true
+
+# yamllint disable rule:line-length
+- name: Compute updated targets list
+  ansible.builtin.set_fact:
+    run_updated_targets_fact: "{{ (run_deploy_targets_result.json.value | from_json) | rejectattr('ip', 'in', ansible_play_hosts | map('extract', hostvars, 'ansible_host') | list) | list }}"
+  delegate_to: localhost
+  run_once: true
+# yamllint enable rule:line-length
+
+- name: Update deploy targets variable
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/{{ run_github_user }}/{{ run_github_repo }}/actions/variables/{{ run_deploy_targets_varname }}"
+    method: PATCH
+    headers:
+      Authorization: "Bearer {{ run_github_token }}"
+      Accept: "application/vnd.github+json"
+    body_format: json
+    body:
+      name: "{{ run_deploy_targets_varname }}"
+      value: "{{ run_updated_targets_fact | to_json }}"
+    status_code: [200, 204]
+  when: run_updated_targets_fact | length > 0
+  delegate_to: localhost
+  run_once: true
+
+- name: Delete deploy targets variable if empty
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/{{ run_github_user }}/{{ run_github_repo }}/actions/variables/{{ run_deploy_targets_varname }}"
+    method: DELETE
+    headers:
+      Authorization: "Bearer {{ run_github_token }}"
+      Accept: "application/vnd.github+json"
+    status_code: [200, 204]
+  when: run_updated_targets_fact | length == 0
+  delegate_to: localhost
+  run_once: true
+
+- name: Delete SSH public key if no hosts remain
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/{{ run_github_user }}/{{ run_github_repo }}/actions/variables/{{ run_deploy_pubkey_varname }}"
+    method: DELETE
+    headers:
+      Authorization: "Bearer {{ run_github_token }}"
+      Accept: "application/vnd.github+json"
+    status_code: [200, 204]
+  when: run_updated_targets_fact | length == 0
+  delegate_to: localhost
+  run_once: true
+
+- name: Delete SSH secret if no hosts remain
+  community.general.github_secrets:
+    token: "{{ run_github_token }}"
+    organization: "{{ run_github_user }}"
+    repository: "{{ run_github_repo }}"
+    key: "{{ run_ssh_private_key_varname }}"
+    state: absent
+  when: run_updated_targets_fact | length == 0
+  delegate_to: localhost
+  run_once: true

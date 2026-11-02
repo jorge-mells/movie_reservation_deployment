@@ -4,8 +4,6 @@ services:
     image: nginxproxy/nginx-proxy:1.11@sha256:39c263cc518ef0a336faddbeeb1e4d736920526f32addf3747ebe331d2d7b361
     labels:
       com.github.nginx-proxy.nginx: "true"
-    extra_hosts:
-      - "host-gateway:host-gateway"
     ports:
       - "80:80"
       - "443:443"
@@ -68,11 +66,6 @@ services:
         image: mysql:26.7.0@sha256:893418c8a7a34c60d2d961cc30ef136095da141478562ed2101ae3f5faba9c3f
         volumes:
           - ./scripts/setup-db.sh:/scripts/setup-db.sh:z
-      - command: ["./scripts/setup-webhooks.sh"] # automate cd
-        image: alpine:3.24.3@sha256:be2656061b536c1883c4034790e21d0a09c5aaaf51968b89368a3c0371ea2c9a
-        volumes:
-          - ./scripts/setup-webhooks.sh:/scripts/setup-webhooks.sh:z
-          - vhost:/vhost.d
     environment:
       IMAGE_TAG: ${IMAGE_TAG:?Please provide the movie_reservation image tag as a sha256 hash(see .env.prod)}
       DB_HOST: ${DB_HOST:?See .env.prod}
@@ -84,8 +77,6 @@ services:
       DATABASE_URL: "mysql+pymysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
       SECRET_KEY: ${SECRET_KEY:?Please provide the secret key for the app. See app for details}
       # proxy env vars
-      WEBHOOK_SERVICE_NAME: ${WEBHOOK_SERVICE_NAME:?See .env.prod}
-      WEBHOOK_SERVICE_PORT: ${WEBHOOK_SERVICE_PORT:?See .env.prod}
       VIRTUAL_HOST: ${VIRTUAL_HOST:?Please provide service domain name}
       VIRTUAL_PORT: ${VIRTUAL_PORT:?Please provide service port}
       LETSENCRYPT_HOST: ${VIRTUAL_HOST:?Please provide service domain name} # NOTE: remove this to stop acme

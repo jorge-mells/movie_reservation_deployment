@@ -18,7 +18,7 @@ provision() {
 
 configure() {
   printf "\nConfiguring servers...\n"
-  pushd ansible-new/
+  pushd ansible/
   ansible-galaxy install -r requirements.yml
   ansible-playbook site.yml
   popd
@@ -27,7 +27,7 @@ configure() {
 cleanup() {
   # FIX: make an ansible playbook which does this cleanup better.
   truncate -s 0 ~/.ssh/virtual_known_hosts
-  pushd ansible-new/
+  pushd ansible/
   ansible-playbook cleanup.yml
   popd
   pushd terraform/

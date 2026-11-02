@@ -1,0 +1,82 @@
+---
+- name: Ensure github environment setup
+  run_once: true
+  delegate_to: localhost
+  block:
+    - name: Get current list of targets for repo
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ run_github_user }}/{{ run_github_repo }}/actions/variables/{{ run_deploy_targets_varname }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ run_github_token }}"
+          Accept: "application/vnd.github+json"
+        status_code: [200, 404]
+      register: run_deploy_targets_result
+
+    - name: Create deploy targets variable if not present
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ run_github_user }}/{{ run_github_repo }}/actions/variables"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ run_github_token }}"
+          Accept: "application/vnd.github+json"
+        body_format: json
+        body:
+          name: "{{ run_deploy_targets_varname }}"
+          value: "[]"
+        status_code: [200, 201]
+      when: run_deploy_targets_result.status == 404
+
+    - name: List existing secrets
+      community.general.github_secrets_info:
+        token: "{{ run_github_token }}"
+        organization: "{{ run_github_user }}"
+        repository: "{{ run_github_repo }}"
+      register: run_existing_secrets_result
+
+    - name: Generate SSH keypair
+      community.crypto.openssh_keypair:
+        path: /tmp/deploy_key
+        type: ed25519
+        comment: "deploy key for {{ run_github_repo }}"
+      register: run_keypair_result
+      when: run_ssh_private_key_varname not in (run_existing_secrets_result.secrets | map(attribute='name') | list)
+
+    - name: Set private key as GitHub secret
+      community.general.github_secrets:
+        token: "{{ run_github_token }}"
+        organization: "{{ run_github_user }}"
+        repository: "{{ run_github_repo }}"
+        key: "{{ run_ssh_private_key_varname }}"
+        value: "{{ lookup('file', '/tmp/deploy_key') }}"
+        state: present
+      when: run_ssh_private_key_varname not in (run_existing_secrets_result.secrets | map(attribute='name') | list)
+
+    - name: Store public key as variable
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ run_github_user }}/{{ run_github_repo }}/actions/variables"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ run_github_token }}"
+          Accept: "application/vnd.github+json"
+        body_format: json
+        body:
+          name: "{{ run_deploy_pubkey_varname }}"
+          value: "{{ run_keypair_result.public_key }}"
+        status_code: [200, 201]
+      when: run_ssh_private_key_varname not in (run_existing_secrets_result.secrets | map(attribute='name') | list)
+
+    - name: Get deploy public key from GitHub variables
+      ansible.builtin.uri:
+        url: "https://api.github.com/repos/{{ run_github_user }}/{{ run_github_repo }}/actions/variables/{{ run_deploy_pubkey_varname }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ run_github_token }}"
+          Accept: "application/vnd.github+json"
+      register: run_deploy_pubkey_result
+      delegate_to: localhost
+      run_once: true
+
+    - name: Set deploy public key fact
+      ansible.builtin.set_fact:
+        run_deploy_public_key_fact: "{{ run_deploy_pubkey_result.json.value }}"
