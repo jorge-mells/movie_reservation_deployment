@@ -77,3 +77,12 @@ For custom deployments, the main entry points to inspect are:
 - **`ansible/roles/*/defaults/main.yml`** – role defaults and configurable parameters.
 
 The individual Terraform resource definitions, Ansible tasks and Compose configuration are located alongside these entry points.
+
+## Limitations
+
+The current implementation has a few areas that could be improved:
+
+- **Testing:** No comprehensive automated testing for Terraform, Ansible or the deployed application.
+- **Observability:** No centralized logging, metrics collection or alerting.
+- **Backups:** No automated database backup and recovery workflow.
+- **Recovery:** No automated application rollback or comprehensive recovery procedure for failed deployments.
