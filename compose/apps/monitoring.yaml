@@ -1,0 +1,42 @@
+---
+services:
+  reverseproxy:
+    extends:
+      file: shared/proxy.yaml
+      service: reverseproxy
+
+  acme-companion:
+    extends:
+      file: shared/proxy.yaml
+      service: acme-companion
+
+  otel-lgtm:
+    image: grafana/otel-lgtm
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:?Please provide grafana admin password}
+      - NODE_EXPORTER_PASSWORD=${NODE_EXPORTER_PASSWORD:?Please provide node exporter password}
+      - NODE_EXPORTER_HOST=${NODE_EXPORTER_HOST:?Please provide node exporter host}
+      - VIRTUAL_HOST=${VIRTUAL_HOST:?Please provide service domain name}
+      - VIRTUAL_PORT=${VIRTUAL_PORT:?Please provide service port}
+      - LETSENCRYPT_HOST=${VIRTUAL_HOST:?Please provide service domain name} # NOTE: remove this to stop acme
+      # otelcol params
+      - OTELCOL_EXTRA_ARGS=--config=file:/otel-lgtm/node-exporter-config.yaml
+    volumes:
+      - ./apps/config/otel-collector-config.yaml:/otel-lgtm/node-exporter-config.yaml
+    depends_on:
+      - reverseproxy
+      - acme-companion
+    networks:
+      - external
+
+volumes:
+  certs:
+  vhost:
+  html:
+  acme:
+
+networks:
+  external:

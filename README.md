@@ -11,11 +11,12 @@ The Compose project in `compose/` defines the following services:
 | Container | Purpose |
 |---|---|
 | `movie_reservation` | Movie reservation application API |
+| `otel-lgtm` | LGTM Observability stack |
 | `db` | MySQL database |
 | `reverseproxy` | Nginx reverse proxy |
 | `acme-companion` | Automatic Let's Encrypt certificate management |
 
-The project also defines persistent volumes for database data, certificates and Nginx configuration, with separate application-facing and database networks.
+The project also defines persistent volumes for database data, certificates and Nginx configuration, with separate application-facing and database networks. 
 
 ### Infrastructure (Terraform)
 
@@ -55,7 +56,7 @@ The `ansible/` directory contains two roles:
 - Installs Podman and Docker-compatible tooling.
 - Enables the rootless Podman socket.
 - Deploys the Compose project and its environment configuration.
-- Configures DNS records through Hetzner DNS or a simulated DNS implementation.
+- Configures DNS records through Hetzner DNS or a simulated(broken) DNS implementation.
 - Configures GitHub-based continuous deployment, including deployment SSH keys and target registration.
 
 ## Deployment
@@ -74,6 +75,7 @@ For custom deployments, the main entry points to inspect are:
 - **`terraform/main.tf`** – selects the infrastructure module.
 - **`terraform/hetzner/variables.tf`** and **`terraform/libvirt/variables.tf`** – infrastructure configuration.
 - **`ansible/site.yml`** – main Ansible playbook and role configuration.
+- **`ansible/inventory/group_vars/terraform.yml`** - host and group parameters.
 - **`ansible/roles/*/defaults/main.yml`** – role defaults and configurable parameters.
 
 The individual Terraform resource definitions, Ansible tasks and Compose configuration are located alongside these entry points.
@@ -83,6 +85,6 @@ The individual Terraform resource definitions, Ansible tasks and Compose configu
 The current implementation has a few areas that could be improved:
 
 - **Testing:** No comprehensive automated testing for Terraform, Ansible or the deployed application.
-- **Observability:** No centralized logging, metrics collection or alerting.
+- **Observability:** No centralized logging, metrics collection or alerting(wip).
 - **Backups:** No automated database backup and recovery workflow.
 - **Recovery:** No automated application rollback or comprehensive recovery procedure for failed deployments.

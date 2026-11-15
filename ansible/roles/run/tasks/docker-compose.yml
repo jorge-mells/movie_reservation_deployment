@@ -17,4 +17,6 @@
 - name: Start regular docker compose services
   community.docker.docker_compose_v2:
     project_src: "{{ run_compose_dest }}"
-    env_files: "{{ [run_compose_dest + '/' + run_compose_env_file] if run_compose_env_file is defined else [] }}"
+    files:
+      - "apps/{{ run_compose_app }}.yaml"
+    env_files: "{{ [run_compose_dest + '/' + run_compose_env_file] if run_compose_env_file is defined else omit }}"

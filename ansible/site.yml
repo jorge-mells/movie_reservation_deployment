@@ -1,20 +1,33 @@
 ---
-- name: Main playbook
-  hosts: all
+- name: Run Main tasks
+  hosts: terraform
+  gather_facts: true
   pre_tasks:
-    - name: Add first VM to webservers
-      delegate_to: localhost
-      run_once: true # noqa: run-once[task]
-      ansible.builtin.add_host:
-        name: "{{ groups['all'][0] }}"
-        groups: webservers
-
-    - name: Set full domain
+    - name: Set host vars from server config
+      vars:
+        _server: "{{ servers[groups['terraform'].index(inventory_hostname)] }}"
       ansible.builtin.set_fact:
-        domain_name: "{{ hostvars[groups['webservers'][0]]['domain_name'] }}"
-        # NOTE: refactor this since a host can have several domains each needing dns
-        # Attach subdomain names to hosts lest all hosts have the same subdomain
-        full_domain: "{{ subdomain_name }}.{{ domain_name | default('example.com') }}"
+        "{{ item.key }}": "{{ item.value }}"
+      loop: "{{ _server | dict2items | rejectattr('key', 'in', ['run_env', 'dynamic_env']) | list }}"
+
+    - name: Set run_env with dynamic vars merged
+      vars:
+        _server: "{{ servers[groups['terraform'].index(inventory_hostname)] }}"
+        # NOTE: shared/dynamic env vars are declared here(remember that compose picks which vars it needs so not bad)
+        # also note that only needed vars go into .env.prod
+        # again, note dynamic_env which specifies the env variables you're picking from this list
+        _all_dynamic_env:
+          UID: "{{ ansible_facts['user_uid'] }}"
+          VIRTUAL_HOST: "{{ _server['run_subdomains'] | map('regex_replace', '$', '.' + domain_name) | join(',') }}"
+          SECRET_KEY: "{{ lookup('pipe', 'openssl rand -hex 32') }}"
+          DB_ROOT_PASSWORD: "{{ lookup('pipe', 'pass show ansible/db-root-password') }}"
+          DB_PASSWORD: "{{ lookup('pipe', 'pass show ansible/db-password') }}"
+          LETSENCRYPT_EMAIL: "{{ letsencrypt_email }}"
+          NODE_EXPORTER_PASSWORD: "{{ lookup('pipe', 'pass show ansible/node-exporter-password') }}"
+          NODE_EXPORTER_HOST: "{{ hostvars[groups['terraform'][0]]['private_ip'] }}"
+          GF_SECURITY_ADMIN_PASSWORD: "{{ lookup('pipe', 'pass show ansible/grafana-password') }}"
+      ansible.builtin.set_fact:
+        run_env: "{{ _server['run_env'] | combine(_all_dynamic_env | dict2items | selectattr('key', 'in', _server['dynamic_env']) | items2dict) }}"
 
     - name: Allow unprivileged processes to bind to port 80
       become: true
@@ -26,32 +39,82 @@
         sysctl_set: true
         reload: true
 
+    - name: Setup node_exporter certs
+      when: enable_node_exporter | default(false)
+      block:
+        - name: Install cryptography Python library
+          become: true
+          ansible.builtin.package:
+            name: python3-cryptography
+            state: present
+
+        - name: Create node_exporter cert dir
+          become: true
+          ansible.builtin.file:
+            path: "/etc/node_exporter"
+            state: directory
+            owner: root
+            group: root
+            mode: '0755'
+
+        - name: Generate private key
+          become: true
+          community.crypto.openssl_privatekey:
+            path: /etc/node_exporter/tls.key
+            size: 2048
+
+        - name: Generate CSR
+          become: true
+          community.crypto.openssl_csr:
+            path: /etc/node_exporter/tls.csr
+            privatekey_path: /etc/node_exporter/tls.key
+            common_name: "{{ inventory_hostname }}"
+
+        - name: Generate self-signed certificate
+          become: true
+          community.crypto.x509_certificate:
+            path: /etc/node_exporter/tls.cert
+            csr_path: /etc/node_exporter/tls.csr
+            privatekey_path: /etc/node_exporter/tls.key
+            provider: selfsigned
+
   roles:
-    - role: security
+    # - role: security
+    # - role: prometheus.prometheus.node_exporter
+    #   vars:
+    #     node_exporter_tls_server_config:
+    #       cert_file: /etc/node_exporter/tls.cert
+    #       key_file: /etc/node_exporter/tls.key
+    #     node_exporter_basic_auth_users:
+    #       randomuser: "{{ lookup('ansible.builtin.pipe', 'pass show ansible/node-exporter-password') }}"
+    #     node_exporter_listen_address: "{{ private_ip | mandatory }}:9100"
+    #   when: enable_node_exporter | default(false)
     - role: run
       vars:
-        run_full_domain: "{{ full_domain }}"
-        run_domain_name: "{{ domain_name }}"
-        run_dns: "hetzner"
-        run_cd_type: "github"
+        # NOTE: dynamic/shared role variables are defined here
+        run_domain_name: "{{ domain_name | mandatory }}"
         run_hetzner_api_token: "{{ lookup('pipe', 'bw get item hcloud_token | jq -r .notes') }}"
+        run_dns: hetzner
         run_compose_dir: "{{ playbook_dir }}/../compose"
-        run_compose_env_file: ".env.prod"
         run_github_token: "{{ lookup('ansible.builtin.pipe', 'gh auth token') }}"
-        # NOTE: get from github deploy.yml workflow
-        run_deploy_targets_varname: "DEPLOY_HOSTS"
-        run_ssh_private_key_varname: "SSH_DEPLOY_PRIVATE_KEY"
-        run_deploy_pubkey_varname: "SSH_DEPLOY_PUBLIC_KEY"
-        run_deploy_scriptname: "deploy.sh"
-        run_deploy_relative_dir: "deploy"
-        # NOTE: end
-        run_env:
-          VIRTUAL_PORT: "8000"
-          UID: "{{ ansible_facts['user_uid'] }}"
-          LETSENCRYPT_EMAIL: "{{ letsencrypt_email | mandatory }}"
-          VIRTUAL_HOST: "{{ full_domain }}"
-          DB_ROOT_PASSWORD: "{{ lookup('pipe', 'pass show ansible/db-root-password') }}"
-          DB_NAME: "prod"
-          DB_USER: movie_reservation
-          DB_PASSWORD: "{{ lookup('pipe', 'pass show ansible/db-password') }}"
-          SECRET_KEY: "{{ lookup('pipe', 'openssl rand -hex 32') }}"
+        run_compose_env_file: ".env.prod"
+
+  post_tasks:
+    - name: Fix node_exporter cert permissions
+      become: true
+      ansible.builtin.file:
+        path: "{{ item }}"
+        owner: node-exp
+        group: node-exp
+        mode: '0400'
+      loop:
+        - /etc/node_exporter/tls.key
+        - /etc/node_exporter/tls.cert
+      when: enable_node_exporter | default(false)
+
+    - name: Restart node_exporter
+      become: true
+      ansible.builtin.systemd:
+        name: node_exporter
+        state: restarted
+      when: enable_node_exporter | default(false)

@@ -4,10 +4,22 @@
   delegate_to: localhost
   block:
     - name: Compute deploy targets list
+      vars:
+        _host_vars: "{{ hostvars[loop_host] }}"
+        _cd_hosts: >-
+          {{ ansible_play_hosts
+             | map('extract', hostvars)
+             | selectattr('run_setup_cd', 'defined')
+             | selectattr('run_setup_cd')
+             | map(attribute='inventory_hostname')
+             | list }}
       ansible.builtin.set_fact:
-        run_updated_targets_fact: "{{ (run_updated_targets_fact | default([])) + [{'user': ansible_user, 'ip': hostvars[item].ansible_host}] }}"
-        # NOTE: no clean way to decouple the dictionary structure for ansible and github actions
-      loop: "{{ ansible_play_hosts }}"
+        run_updated_targets_fact: >-
+          {{ (run_updated_targets_fact | default([])) +
+             [{'user': _host_vars.ansible_user, 'ip': _host_vars.ansible_host}] }}
+      loop: "{{ _cd_hosts }}"
+      loop_control:
+        loop_var: loop_host
 
     - name: Update deploy targets variable
       ansible.builtin.uri:

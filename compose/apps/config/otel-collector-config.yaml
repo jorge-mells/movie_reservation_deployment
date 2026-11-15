@@ -1,0 +1,20 @@
+---
+receivers:
+  prometheus/node_exporter:
+    config:
+      scrape_configs:
+        - job_name: node_exporter
+          scheme: https
+          tls_config:
+            insecure_skip_verify: true
+          basic_auth:
+            username: randomuser
+            password: ${NODE_EXPORTER_PASSWORD}
+          static_configs:
+            - targets:
+                - "${NODE_EXPORTER_HOST}:9100"
+
+service:
+  pipelines:
+    metrics:
+      receivers: [prometheus/node_exporter]

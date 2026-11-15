@@ -79,7 +79,7 @@
     state: present
   become: true
 
-- name: Configure firewall
+- name: Configure firewall services
   ansible.posix.firewalld:
     service: "{{ item }}"
     permanent: true
@@ -88,6 +88,15 @@
     - http
     - https
     - ssh
+  become: true
+
+- name: Configure firewall ports
+  ansible.posix.firewalld:
+    port: "{{ item }}"
+    permanent: true
+    state: enabled
+  loop:
+    - "9100/tcp" # bad fix; create a variable later to allow hosts choose what firewall ports/services to open.
   become: true
 
 - name: Start and enable firewalld

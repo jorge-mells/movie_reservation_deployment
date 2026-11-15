@@ -1,5 +1,6 @@
 ---
 # TODO: replace with proper dns setup for a real webserver
+# BUG: this is broken(full_domain doesn't exist)
 - name: Validate runtime variables
   ansible.builtin.assert:
     that:

@@ -102,6 +102,7 @@ resource "ansible_host" "vm" {
     ansible_host = hcloud_server.vms[each.key].ipv4_address
     ansible_user = var.vm_info.ansible_user
     domain_name  = var.network_info.domain
+    private_ip   = each.value.ip
   }
 }
 

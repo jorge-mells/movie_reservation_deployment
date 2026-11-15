@@ -27,7 +27,7 @@ variable "vm_info" {
   default = {
     vm_groups = [{
       name        = "default"
-      count       = 1
+      count       = 2
       server_type = "cpx22" # WARN: this is super expensive!! Don't keep running for long!!
       image       = "centos-stream-10"
       location    = "nbg1"
